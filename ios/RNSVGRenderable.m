@@ -137,7 +137,7 @@
     if (hitArea == _hitArea) {
         return;
     }
-    
+
     [self invalidate];
     CGPathRelease(_hitArea);
     _hitArea = CGPathRetain(hitArea);
@@ -167,12 +167,12 @@
     CGContextSaveGState(context);
     CGContextConcatCTM(context, self.matrix);
     CGContextSetAlpha(context, self.opacity);
-    
+
     [self beginTransparencyLayer:context];
     [self renderClip:context];
     [self renderLayerTo:context];
     [self endTransparencyLayer:context];
-
+        
     CGContextRestoreGState(context);
 }
 
@@ -254,14 +254,14 @@
     if (mergeList.count == 0) {
         return;
     }
-    
+
     self.ownedPropList = [self.propList mutableCopy];
-    
+
     if (!inherited) {
         _originProperties = [[NSMutableDictionary alloc] init];
         _changedList = mergeList;
     }
-    
+
     for (NSString *key in mergeList) {
         if (inherited) {
             [self inheritProperty:target propName:key];
@@ -294,6 +294,34 @@
 - (void)renderLayerTo:(CGContextRef)context
 {
     // abstract
+}
+
+- (void)setPathBox:(CGRect)box {
+    self._pathbox = box;
+}
+
+- (CGRect)getPathBox:(CGAffineTransform*)transform {
+    if (CGRectIsNull(self._pathbox)) {
+        self._pathbox = CGRectMake(0, 0, 0, 0);
+    }
+    return CGRectApplyAffineTransform(self._pathbox, *transform);
+}
+
+- (CGAffineTransform)getBaseTransform {
+    UIView *parent = self.superview;
+    NSMutableArray *arr = [[NSMutableArray alloc] init];
+    while (parent && [parent class] != [RNSVGSvgView class]) {
+        [arr insertObject:parent atIndex:0];
+        parent = parent.superview;
+    }
+    
+    CGAffineTransform transform = CGAffineTransformIdentity;
+    for (RNSVGRenderable *element in arr) {
+        transform = CGAffineTransformConcat(element.matrix, transform);
+    }
+    transform = CGAffineTransformConcat(self.matrix, transform);
+    
+    return transform;
 }
 
 @end

@@ -77,6 +77,10 @@ static void RNSVGFreeTextFrame(RNSVGTextFrame frame)
         CGPathAddPath(path, &offset, line);
         CGPathRelease(line);
     }
+
+    CGRect bbox = CGPathGetBoundingBox(path);
+    CGAffineTransform transform = CGAffineTransformTranslate(CGAffineTransformIdentity, 0, -bbox.size.height * 1.2);
+    path = CGPathCreateCopyByTransformingPath(path, &transform);
     
     return (CGPathRef)CFAutorelease(path);
 }

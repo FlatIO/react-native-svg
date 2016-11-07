@@ -152,7 +152,6 @@
 // hitTest delagate
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
-    
     // abstract
     return nil;
 }

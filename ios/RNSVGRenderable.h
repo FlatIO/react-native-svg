@@ -29,8 +29,12 @@
 @property (nonatomic, assign) CGPathRef hitArea;
 @property (nonatomic, copy) NSArray<NSString *> *propList;
 @property (nonatomic, strong) NSMutableArray<NSString *> *ownedPropList;
+@property (nonatomic, assign) CGRect _pathbox;
 
 - (void)setBoundingBox:(CGRect)boundingBox;
+- (void)setPathBox:(CGRect)box;
+- (CGAffineTransform)getBaseTransform;
+- (CGRect)getPathBox:(CGAffineTransform*)transform;
 - (CGFloat)getWidthRelatedValue:(NSString *)string;
 - (CGFloat)getHeightRelatedValue:(NSString *)string;
 - (CGFloat)getContextWidth;

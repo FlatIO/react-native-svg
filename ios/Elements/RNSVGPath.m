@@ -35,6 +35,8 @@
         return;
     }
     
+    [self setPathBox: CGPathGetBoundingBox(path)];
+
     if ([self getSvgView].responsible) {
         // Add path to hitArea
         CGMutablePathRef hitArea = CGPathCreateMutableCopy(path);

@@ -14,7 +14,7 @@
 {
     RNSVGSvgView* svg = [self getSvgView];
     [self clip:context];
-    
+
     [self traverseSubviews:^(RNSVGNode *node) {
         if (node.responsible && !svg.responsible) {
             svg.responsible = YES;
@@ -38,14 +38,14 @@
         CGPathAddPath(path, &transform, [node getPath:context]);
         return YES;
     }];
-    
+
     return (CGPathRef)CFAutorelease(path);
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event withTransform:(CGAffineTransform)transform
 {
     CGAffineTransform matrix = CGAffineTransformConcat(self.matrix, transform);
-    
+
     for (RNSVGNode *node in [self.subviews reverseObjectEnumerator]) {
         if ([node isKindOfClass:[RNSVGNode class]]) {
             if (event) {
@@ -55,7 +55,7 @@
             }
 
             UIView *view = [node hitTest: point withEvent:event withTransform:matrix];
-            
+
             if (view) {
                 node.active = YES;
                 if (node.responsible || (node != view)) {
@@ -75,12 +75,12 @@
         RNSVGSvgView* svg = [self getSvgView];
         [svg defineTemplate:self templateRef:self.name];
     }
-    
+
     [self traverseSubviews:^(RNSVGNode *node) {
         [node saveDefinition];
         return YES;
     }];
-    
+
 }
 
 - (void)mergeProperties:(__kindof RNSVGNode *)target mergeList:(NSArray<NSString *> *)mergeList
@@ -99,5 +99,50 @@
     }];
 }
 
+- (CGRect)getPathBox:(CGAffineTransform*)transform {
+    CGPoint p = CGPointApplyAffineTransform(CGPointMake(0, 0), *transform);
+
+    __block CGFloat top = p.y;
+    __block CGFloat left = p.x;
+    __block CGFloat right = p.x;
+    __block CGFloat bottom = p.y;
+    __block BOOL set = NO;
+
+    [self traverseSubviews:^BOOL(RNSVGNode *node) {
+        if ([node isKindOfClass:[RNSVGRenderable class]]) {
+            RNSVGRenderable* renderable = node;
+
+            CGAffineTransform subtransform = CGAffineTransformConcat(renderable.matrix, *transform);
+            CGRect subbox = [renderable getPathBox:&subtransform];
+
+            if (set == NO) {
+                top = subbox.origin.y;
+                left = subbox.origin.x;
+                right = left + subbox.size.width;
+                bottom = top + subbox.size.height;
+                set = YES;
+                return YES;
+            }
+
+            if (top > subbox.origin.y) {
+                top = subbox.origin.y;
+            }
+            if (left > subbox.origin.x) {
+                left = subbox.origin.x;
+            }
+            if (right < subbox.origin.x + subbox.size.width) {
+                right = subbox.origin.x + subbox.size.width;
+            }
+            if (bottom < subbox.origin.y + subbox.size.height) {
+                bottom = subbox.origin.y + subbox.size.height;
+            }
+        }
+        return YES;
+    }];
+
+    [self setPathBox: CGRectMake(left, top, right - left, bottom - top)];
+
+    return self._pathbox;
+}
 
 @end
