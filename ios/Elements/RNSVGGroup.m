@@ -14,6 +14,10 @@
 {
     [self clip:context];
     [self renderGroupTo:context];
+
+    self.pathbox = CGRectNull;
+
+    [self setPathBox:[self getPathBox]];
 }
 
 - (void)renderGroupTo:(CGContextRef)context
@@ -23,17 +27,17 @@
         if (node.responsible && !svg.responsible) {
             svg.responsible = YES;
         }
-        
+
         if ([node isKindOfClass:[RNSVGRenderable class]]) {
             [(RNSVGRenderable*)node mergeProperties:self];
         }
-        
+
         [node renderTo:context];
-        
+
         if ([node isKindOfClass:[RNSVGRenderable class]]) {
             [(RNSVGRenderable*)node resetProperties];
         }
-        
+
         return YES;
     }];
 }
@@ -61,7 +65,7 @@
     if (hitSelf) {
         return hitSelf;
     }
-    
+
     CGAffineTransform matrix = CGAffineTransformConcat(self.matrix, transform);
 
     CGPathRef clip = [self getClipPath];
@@ -69,26 +73,26 @@
         CGPathRef transformedClipPath = CGPathCreateCopyByTransformingPath(clip, &matrix);
         BOOL insideClipPath = CGPathContainsPoint(clip, nil, point, self.clipRule == kRNSVGCGFCRuleEvenodd);
         CGPathRelease(transformedClipPath);
-        
+
         if (!insideClipPath) {
             return nil;
         }
-        
+
     }
-    
+
     for (RNSVGNode *node in [self.subviews reverseObjectEnumerator]) {
         if (![node isKindOfClass:[RNSVGNode class]]) {
             continue;
         }
-        
+
         if (event) {
             node.active = NO;
         } else if (node.active) {
             return node;
         }
-        
+
         UIView *hitChild = [node hitTest: point withEvent:event withTransform:matrix];
-        
+
         if (hitChild) {
             node.active = YES;
             return (node.responsible || (node != hitChild)) ? hitChild : self;
@@ -118,6 +122,55 @@
         }
         return YES;
     }];
+}
+
+- (CGRect)getPathBox {
+    if (CGRectIsNull(self.pathbox) == NO) {
+      return self.pathbox;
+    }
+
+    __block CGFloat top = 0;
+    __block CGFloat left = 0;
+    __block CGFloat right = 0;
+    __block CGFloat bottom = 0;
+    __block BOOL set = NO;
+
+    [self traverseSubviews:^BOOL(RNSVGNode *node) {
+        if ([node isKindOfClass:[RNSVGRenderable class]]) {
+            RNSVGRenderable* renderable = (RNSVGRenderable*)node;
+
+            CGRect subbox = [renderable getPathBox];
+
+            if (set == NO) {
+                top = subbox.origin.y;
+                left = subbox.origin.x;
+                right = left + subbox.size.width;
+                bottom = top + subbox.size.height;
+                set = YES;
+                return YES;
+            }
+
+            if (top > subbox.origin.y) {
+                top = subbox.origin.y;
+            }
+            if (left > subbox.origin.x) {
+                left = subbox.origin.x;
+            }
+            if (right < (subbox.origin.x + subbox.size.width)) {
+                right = subbox.origin.x + subbox.size.width;
+            }
+            if (bottom < (subbox.origin.y + subbox.size.height)) {
+                bottom = subbox.origin.y + subbox.size.height;
+            }
+        }
+        return YES;
+    }];
+
+    return CGRectMake(left, top, right - left, bottom - top);
+}
+
+- (void)invalidate {
+  [super invalidate];
 }
 
 @end

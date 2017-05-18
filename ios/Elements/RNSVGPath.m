@@ -18,7 +18,6 @@
     if (d == _d) {
         return;
     }
-
     [self invalidate];
     _d = d;
     CGPathRelease(_path);

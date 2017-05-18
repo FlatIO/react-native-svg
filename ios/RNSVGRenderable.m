@@ -134,7 +134,7 @@
     if (propList == _propList) {
         return;
     }
-    
+
     _propList = _attributeList = propList;
     [self invalidate];
 }
@@ -153,12 +153,22 @@
     CGContextSaveGState(context);
     CGContextConcatCTM(context, self.matrix);
     CGContextSetAlpha(context, self.opacity);
-    
+
     [self beginTransparencyLayer:context];
     [self renderLayerTo:context];
     [self endTransparencyLayer:context];
-    
+
     CGContextRestoreGState(context);
+
+    CGMutablePathRef p = CGPathCreateMutableCopy([self getPath:context]);
+    if (self.stroke && self.strokeWidth) {
+        // Add stroke to path
+        CGPathRef strokePath = CGPathCreateCopyByStrokingPath(p, nil, self.strokeWidth, self.strokeLinecap, self.strokeLinejoin, self.strokeMiterlimit);
+        CGPathAddPath(p, nil, strokePath);
+        CGPathRelease(strokePath);
+    }
+
+    [self setPathBox:CGPathGetBoundingBox(p)];
 }
 
 
@@ -167,23 +177,23 @@
     if (!self.fill && !self.stroke) {
         return;
     }
-    
+
     CGPathRef path = [self getPath:context];
     [self setHitArea:path];
-    
+
     if (self.opacity == 0) {
         return;
     }
-    
+
     CGPathDrawingMode mode = kCGPathStroke;
     BOOL fillColor = NO;
     [self clip:context];
-    
+
     BOOL evenodd = self.fillRule == kRNSVGCGFCRuleEvenodd;
-    
+
     if (self.fill) {
         fillColor = [self.fill applyFillColor:context opacity:self.fillOpacity];
-        
+
         if (fillColor) {
             mode = evenodd ? kCGPathEOFill : kCGPathFill;
         } else {
@@ -195,31 +205,31 @@
                      painter:[[self getSvgView] getDefinedPainter:self.fill.brushRef]
              ];
             CGContextRestoreGState(context);
-            
+
             if (!self.stroke) {
                 return;
             }
         }
     }
-    
+
     if (self.stroke) {
         CGContextSetLineWidth(context, self.strokeWidth);
         CGContextSetLineCap(context, self.strokeLinecap);
         CGContextSetLineJoin(context, self.strokeLinejoin);
         RNSVGCGFloatArray dash = self.strokeDasharray;
-        
+
         if (dash.count) {
             CGContextSetLineDash(context, self.strokeDashoffset, dash.array, dash.count);
         }
-        
+
         if (!fillColor) {
             CGContextAddPath(context, path);
             CGContextReplacePathWithStrokedPath(context);
             CGContextClip(context);
         }
-        
+
         BOOL strokeColor = [self.stroke applyStrokeColor:context opacity:self.strokeOpacity];
-        
+
         if (strokeColor && fillColor) {
             mode = evenodd ? kCGPathEOFillStroke : kCGPathFillStroke;
         } else if (!strokeColor) {
@@ -228,12 +238,12 @@
                 CGContextAddPath(context, path);
                 CGContextDrawPath(context, mode);
             }
-            
+
             // draw stroke
             CGContextAddPath(context, path);
             CGContextReplacePathWithStrokedPath(context);
             CGContextClip(context);
-            
+
             [self.stroke paint:context
                        opacity:self.strokeOpacity
                        painter:[[self getSvgView] getDefinedPainter:self.stroke.brushRef]
@@ -241,7 +251,7 @@
             return;
         }
     }
-    
+
     CGContextAddPath(context, path);
     CGContextDrawPath(context, mode);
 }
@@ -252,14 +262,14 @@
     if ([self getSvgView].responsible) {
         // Add path to hitArea
         CGMutablePathRef hitArea = CGPathCreateMutableCopy(path);
-        
+
         if (self.stroke && self.strokeWidth) {
             // Add stroke to hitArea
             CGPathRef strokePath = CGPathCreateCopyByStrokingPath(hitArea, nil, self.strokeWidth, self.strokeLinecap, self.strokeLinejoin, self.strokeMiterlimit);
             CGPathAddPath(hitArea, nil, strokePath);
             CGPathRelease(strokePath);
         }
-        
+
         _hitArea = CGPathRetain(CFAutorelease(CGPathCreateCopy(hitArea)));
         CGPathRelease(hitArea);
     }
@@ -277,22 +287,22 @@
     if (!_hitArea) {
         return nil;
     }
-    
+
     if (self.active) {
         if (!event) {
             self.active = NO;
         }
         return self;
     }
-    
+
     CGAffineTransform matrix = CGAffineTransformConcat(self.matrix, transform);
     CGPathRef hitArea = CGPathCreateCopyByTransformingPath(_hitArea, &matrix);
     BOOL contains = CGPathContainsPoint(hitArea, nil, point, NO);
     CGPathRelease(hitArea);
-    
+
     if (contains) {
         CGPathRef clipPath = [self getClipPath];
-        
+
         if (!clipPath) {
             return self;
         } else {
@@ -314,14 +324,14 @@
 - (void)mergeProperties:(__kindof RNSVGRenderable *)target
 {
     NSArray<NSString *> *targetAttributeList = [target getAttributeList];
-    
+
     if (targetAttributeList.count == 0) {
         return;
     }
-    
+
     NSMutableArray* attributeList = [self.propList mutableCopy];
     _originProperties = [[NSMutableDictionary alloc] init];
-    
+
     for (NSString *key in targetAttributeList) {
         [_originProperties setValue:[self valueForKey:key] forKey:key];
         if (![attributeList containsObject:key]) {
@@ -329,7 +339,7 @@
             [self setValue:[target valueForKey:key] forKey:key];
         }
     }
-    
+
     _lastMergedList = targetAttributeList;
     _attributeList = [attributeList copy];
 }
@@ -339,9 +349,54 @@
     for (NSString *key in _lastMergedList) {
         [self setValue:[_originProperties valueForKey:key] forKey:key];
     }
-    
+
     _lastMergedList = nil;
     _attributeList = _propList;
+}
+
+- (void)setPathBox:(CGRect)box {
+    CGRect former = _pathbox;
+    _pathbox = box;
+
+    if (!self.onChange || CGRectIsNull(_pathbox) == YES || CGRectEqualToRect(former, box) == YES) {
+        return;
+    }
+
+    CGAffineTransform transform = [self getBaseTransform];
+    CGRect pathbox = CGRectApplyAffineTransform(_pathbox, transform);
+
+    RNSVGSvgView* svgview = [self getSvgView];
+
+    self.onChange(@{
+        @"posX": @(pathbox.origin.x + svgview.bounds.origin.x),
+        @"posY": @(pathbox.origin.y + svgview.bounds.origin.y),
+        @"width": @(pathbox.size.width),
+        @"height": @(pathbox.size.height)
+    });
+}
+
+- (CGRect)getPathBox {
+    if (CGRectIsNull(_pathbox)) {
+        _pathbox = CGRectMake(0, 0, 0, 0);
+    }
+    return _pathbox;
+}
+
+- (CGAffineTransform)getBaseTransform {
+    UIView *parent = self.superview;
+    NSMutableArray *arr = [[NSMutableArray alloc] init];
+    while (parent && [parent class] != [RNSVGSvgView class]) {
+        [arr insertObject:parent atIndex:0];
+        parent = parent.superview;
+    }
+
+    CGAffineTransform transform = CGAffineTransformIdentity;
+    for (RNSVGRenderable *element in arr) {
+        transform = CGAffineTransformConcat(element.matrix, transform);
+    }
+    transform = CGAffineTransformConcat(self.matrix, transform);
+
+    return transform;
 }
 
 @end
