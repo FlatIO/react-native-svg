@@ -28,6 +28,7 @@
 @property (nonatomic, assign) RNSVGCGFloatArray strokeDasharray;
 @property (nonatomic, assign) CGFloat strokeDashoffset;
 @property (nonatomic, copy) NSArray<NSString *> *propList;
+@property (nonatomic, assign) CGRect _pathbox; 
 
 - (void)setHitArea:(CGPathRef)path;
 
@@ -36,5 +37,9 @@
 - (void)mergeProperties:(__kindof RNSVGRenderable *)target;
 
 - (void)resetProperties;
+
+- (void)setPathBox:(CGRect)box;
+- (CGAffineTransform)getBaseTransform;
+- (CGRect)getPathBox:(CGAffineTransform*)transform;
 
 @end

@@ -18,11 +18,11 @@
     if (d == _d) {
         return;
     }
-
     [self invalidate];
     _d = d;
     CGPathRelease(_path);
     _path = CGPathRetain([d getPath]);
+    [self setPathBox: CGPathGetBoundingBox(_path)]; 
 }
 
 - (CGPathRef)getPath:(CGContextRef)context
