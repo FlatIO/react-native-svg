@@ -121,6 +121,9 @@
 }
 
 - (CGRect)getPathBox:(CGAffineTransform*)transform {
+    if (CGRectIsNull(self._pathbox) == NO) {
+      return self._pathbox;
+    }
     CGPoint p = CGPointApplyAffineTransform(CGPointMake(0, 0), *transform);
 
     __block CGFloat top = p.y;
@@ -131,7 +134,7 @@
 
     [self traverseSubviews:^BOOL(RNSVGNode *node) {
         if ([node isKindOfClass:[RNSVGRenderable class]]) {
-            RNSVGRenderable* renderable = node;
+            RNSVGRenderable* renderable = (RNSVGRenderable*)node;
 
             CGAffineTransform subtransform = CGAffineTransformConcat(renderable.matrix, *transform);
             CGRect subbox = [renderable getPathBox:&subtransform];
@@ -164,6 +167,11 @@
     [self setPathBox: CGRectMake(left, top, right - left, bottom - top)];
 
     return self._pathbox;
-} 
+}
+
+- (void)invalidate {
+  self._pathbox = CGRectNull;
+  [super invalidate];
+}
 
 @end
