@@ -179,6 +179,7 @@
     }
 
     [self setPathBox:CGPathGetBoundingBox(p)];
+    CGPathRelease(p);
 }
 
 
