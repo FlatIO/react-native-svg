@@ -169,6 +169,16 @@
     [self endTransparencyLayer:context];
 
     CGContextRestoreGState(context);
+
+    CGMutablePathRef p = CGPathCreateMutableCopy([self getPath:context]);
+    if (self.stroke && self.strokeWidth) {
+        // Add stroke to path
+        CGPathRef strokePath = CGPathCreateCopyByStrokingPath(p, nil, self.strokeWidth, self.strokeLinecap, self.strokeLinejoin, self.strokeMiterlimit);
+        CGPathAddPath(p, nil, strokePath);
+        CGPathRelease(strokePath);
+    }
+
+    [self setPathBox:CGPathGetBoundingBox(p)];
 }
 
 
@@ -353,6 +363,51 @@
 
     _lastMergedList = nil;
     _attributeList = _propList;
+}
+
+- (void)setPathBox:(CGRect)box {
+    CGRect former = _pathbox;
+    _pathbox = box;
+
+    if (!self.onChange || CGRectIsNull(_pathbox) == YES || CGRectEqualToRect(former, box) == YES) {
+        return;
+    }
+
+    CGAffineTransform transform = [self getBaseTransform];
+    CGRect pathbox = CGRectApplyAffineTransform(_pathbox, transform);
+
+    RNSVGSvgView* svgview = [self getSvgView];
+
+    self.onChange(@{
+        @"posX": @(pathbox.origin.x + svgview.bounds.origin.x),
+        @"posY": @(pathbox.origin.y + svgview.bounds.origin.y),
+        @"width": @(pathbox.size.width),
+        @"height": @(pathbox.size.height)
+    });
+}
+
+- (CGRect)getPathBox {
+    if (CGRectIsNull(_pathbox)) {
+        _pathbox = CGRectMake(0, 0, 0, 0);
+    }
+    return _pathbox;
+}
+
+- (CGAffineTransform)getBaseTransform {
+    UIView *parent = self.superview;
+    NSMutableArray *arr = [[NSMutableArray alloc] init];
+    while (parent && [parent class] != [RNSVGSvgView class]) {
+        [arr insertObject:parent atIndex:0];
+        parent = parent.superview;
+    }
+
+    CGAffineTransform transform = CGAffineTransformIdentity;
+    for (RNSVGRenderable *element in arr) {
+        transform = CGAffineTransformConcat(element.matrix, transform);
+    }
+    transform = CGAffineTransformConcat(self.matrix, transform);
+
+    return transform;
 }
 
 @end

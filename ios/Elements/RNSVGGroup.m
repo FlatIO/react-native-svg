@@ -28,6 +28,9 @@
     [self clip:context];
     [self setupGlyphContext:context];
     [self renderGroupTo:context];
+
+    self.pathbox = CGRectNull;
+    [self setPathBox:[self getPathBox]];
 }
 
 - (void)renderGroupTo:(CGContextRef)context
@@ -160,6 +163,56 @@
         }
         return YES;
     }];
+}
+
+- (CGRect)getPathBox
+{
+    if (CGRectIsNull(self.pathbox) == NO) {
+      return self.pathbox;
+    }
+
+    __block CGFloat top = 0;
+    __block CGFloat left = 0;
+    __block CGFloat right = 0;
+    __block CGFloat bottom = 0;
+    __block BOOL set = NO;
+
+    [self traverseSubviews:^BOOL(RNSVGNode *node) {
+        if ([node isKindOfClass:[RNSVGRenderable class]]) {
+            RNSVGRenderable* renderable = (RNSVGRenderable*)node;
+
+            CGRect subbox = [renderable getPathBox];
+
+            if (set == NO) {
+                top = subbox.origin.y;
+                left = subbox.origin.x;
+                right = left + subbox.size.width;
+                bottom = top + subbox.size.height;
+                set = YES;
+                return YES;
+            }
+
+            if (top > subbox.origin.y) {
+                top = subbox.origin.y;
+            }
+            if (left > subbox.origin.x) {
+                left = subbox.origin.x;
+            }
+            if (right < (subbox.origin.x + subbox.size.width)) {
+                right = subbox.origin.x + subbox.size.width;
+            }
+            if (bottom < (subbox.origin.y + subbox.size.height)) {
+                bottom = subbox.origin.y + subbox.size.height;
+            }
+        }
+        return YES;
+    }];
+
+    return CGRectMake(left, top, right - left, bottom - top);
+}
+
+- (void)invalidate {
+  [super invalidate];
 }
 
 @end
