@@ -173,7 +173,7 @@
     CGMutablePathRef p = CGPathCreateMutableCopy([self getPath:context]);
     if (self.stroke && self.strokeWidth) {
         // Add stroke to path
-        CGPathRef strokePath = CGPathCreateCopyByStrokingPath(p, nil, self.strokeWidth, self.strokeLinecap, self.strokeLinejoin, self.strokeMiterlimit);
+        CGPathRef strokePath = CGPathCreateCopyByStrokingPath(p, nil, (CGFloat)[self.strokeWidth floatValue], self.strokeLinecap, self.strokeLinejoin, self.strokeMiterlimit);
         CGPathAddPath(p, nil, strokePath);
         CGPathRelease(strokePath);
     }
